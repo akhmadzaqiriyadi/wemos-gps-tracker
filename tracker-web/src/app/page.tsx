@@ -132,6 +132,7 @@ export default function TrackerDashboard() {
   const history = data?.history || [];
   const hasCoordinates = current.lat !== 0 && current.lng !== 0;
   const hasGpsFix = isOnline && hasCoordinates && current.satellites >= 3;
+  const isFixed = (data?.isFixed ?? false) || hasGpsFix;
 
   // Koordinat fallback untuk peta saat GPS belum fix (Jogja default)
   const displayLat = hasCoordinates ? current.lat : (history[0]?.lat || -7.747035);
