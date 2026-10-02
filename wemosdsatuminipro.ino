@@ -21,7 +21,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <SoftwareSerial.h>
 #include <TinyGPSPlus.h>
 
@@ -29,9 +29,8 @@
 const char* ssid     = "iPhone 16 Pro Zaqi";
 const char* password = "zaqi24112003";
 
-// URL Next.js Dashboard Server (IP laptop Anda saat konek ke Hotspot iPhone)
-// Catatan: Jika Next.js dijalankan di laptop, IP ini akan otomatis terhubung di subnet yang sama
-char serverUrl[128] = "http://192.168.110.96:3000/api/location"; 
+// URL Production Vercel Dashboard
+const char* serverUrl = "https://tracker-web-jet.vercel.app/api/location";
 
 // Pin GPS SoftwareSerial
 static const int RXPin = 12; // D6 -> TX GPS
@@ -135,24 +134,28 @@ void setup() {
   Serial.println(F("=================================================="));
 }
 
-// Kirim data ke Next.js API (/api/location)
+// Kirim data ke Next.js API (/api/location) di Vercel Production
 void sendToNextJsServer() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  WiFiClient client;
+  WiFiClientSecure client;
+  client.setInsecure(); // Mengabaikan verifikasi SSL certificate untuk ESP8266
+  client.setTimeout(3000);
+
   HTTPClient http;
 
   if (http.begin(client, serverUrl)) {
     http.addHeader("Content-Type", "application/json");
 
-    // Jika belum lock satelit (misal saat indoor), kirim koordinat default / dummy yang valid
-    double lat = gps.location.isValid() ? gps.location.lat() : -7.747035;
-    double lng = gps.location.isValid() ? gps.location.lng() : 110.355398;
+    bool hasFix = gps.location.isValid();
+    double lat = hasFix ? gps.location.lat() : 0.0;
+    double lng = hasFix ? gps.location.lng() : 0.0;
     float spd = gps.speed.isValid() ? gps.speed.kmph() : 0.0;
-    float alt = gps.altitude.isValid() ? gps.altitude.meters() : 145.0;
+    float alt = gps.altitude.isValid() ? gps.altitude.meters() : 0.0;
     int sats = gps.satellites.isValid() ? gps.satellites.value() : 0;
 
     String payload = "{";
+    payload += "\"valid\":" + String(hasFix ? "true" : "false") + ",";
     payload += "\"lat\":" + String(lat, 6) + ",";
     payload += "\"lng\":" + String(lng, 6) + ",";
     payload += "\"speed\":" + String(spd, 1) + ",";
@@ -162,9 +165,9 @@ void sendToNextJsServer() {
 
     int httpCode = http.POST(payload);
     if (httpCode > 0) {
-      Serial.printf("[HTTP POST] Sukses kirim ke Next.js (Respon: %d)\n", httpCode);
+      Serial.printf("[HTTP POST VERCEL] Berhasil terkirim! Respon: %d\n", httpCode);
     } else {
-      Serial.printf("[HTTP POST] Gagal kirim ke server (%s)\n", http.errorToString(httpCode).c_str());
+      Serial.printf("[HTTP POST VERCEL] Gagal: %s\n", http.errorToString(httpCode).c_str());
     }
     http.end();
   }
