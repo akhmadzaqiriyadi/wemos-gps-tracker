@@ -38,15 +38,12 @@ export default function MapTracker({
     // Custom Zoom control di kanan bawah
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    // OpenStreetMap CartoDB Dark Matter / Positron tiles yang elegan
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 20,
-      }
-    ).addTo(map);
+    // Tile Layer resmi OpenStreetMap (100% Free & No API Key Required)
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
     // Custom Icon untuk GPS Tracker Pin
     const customIcon = L.divIcon({
