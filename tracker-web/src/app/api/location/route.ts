@@ -109,6 +109,18 @@ export async function GET() {
           history: dbHistory,
           storage: "neon-postgres",
         });
+      } else {
+        return NextResponse.json({
+          deviceId: store.deviceId,
+          wemosIp: store.wemosIp,
+          isOnline: false,
+          isFixed: false,
+          rawStatus: "Siap (Neon Postgres terhubung, menunggu data Wemos...)",
+          lastSeenSecondsAgo: null,
+          current: store.current,
+          history: [],
+          storage: "neon-postgres",
+        });
       }
     } catch (e) {
       console.error("Gagal membaca dari Neon Postgres, fallback ke memory:", e);
