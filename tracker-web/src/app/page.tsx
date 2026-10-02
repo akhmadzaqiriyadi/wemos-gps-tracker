@@ -57,6 +57,7 @@ interface GPSData {
     satellites: number;
     timestamp: string;
   }>;
+  storage?: string;
 }
 
 export default function TrackerDashboard() {
@@ -153,6 +154,10 @@ export default function TrackerDashboard() {
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   OpenStreetMap
+                </span>
+                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Neon DB Active
                 </span>
               </div>
               <p className="text-xs md:text-sm text-slate-400 flex items-center gap-2 mt-0.5">
