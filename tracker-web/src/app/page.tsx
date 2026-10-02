@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
+import SpeedometerGauge from "@/components/SpeedometerGauge";
 import {
   Navigation,
   Radio,
@@ -21,6 +22,9 @@ import {
   RefreshCw,
   PowerOff,
   Trash2,
+  Compass,
+  Activity,
+  Database,
 } from "lucide-react";
 
 // Dynamic import Leaflet component agar tidak error SSR di Next.js
@@ -137,6 +141,42 @@ export default function TrackerDashboard() {
   // Koordinat fallback untuk peta saat GPS belum fix (Jogja default)
   const displayLat = hasCoordinates ? current.lat : (history[0]?.lat || -7.747035);
   const displayLng = hasCoordinates ? current.lng : (history[0]?.lng || 110.355398);
+
+  // Hitung total jarak tempuh rute (Trip Distance) dalam Kilometer
+  const totalTripDistanceKm = useMemo(() => {
+    if (!history || history.length < 2) return 0;
+    let dist = 0;
+    const R = 6371e3;
+    for (let i = 1; i < history.length; i++) {
+      const p1 = (history[i - 1].lat * Math.PI) / 180;
+      const p2 = (history[i].lat * Math.PI) / 180;
+      const dp = ((history[i].lat - history[i - 1].lat) * Math.PI) / 180;
+      const dl = ((history[i].lng - history[i - 1].lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dp / 2) * Math.sin(dp / 2) +
+        Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      dist += R * c;
+    }
+    return dist / 1000;
+  }, [history]);
+
+  // Hitung arah mata angin (Heading) kendaraan
+  const headingInfo = useMemo(() => {
+    if (!history || history.length < 2) return { deg: 0, cardinal: "U (Utara)" };
+    const p1 = history[history.length - 2];
+    const p2 = history[history.length - 1];
+    const y = Math.sin(((p2.lng - p1.lng) * Math.PI) / 180) * Math.cos((p2.lat * Math.PI) / 180);
+    const x =
+      Math.cos((p1.lat * Math.PI) / 180) * Math.sin((p2.lat * Math.PI) / 180) -
+      Math.sin((p1.lat * Math.PI) / 180) *
+        Math.cos((p2.lat * Math.PI) / 180) *
+        Math.cos(((p2.lng - p1.lng) * Math.PI) / 180);
+    const deg = Math.round((((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360);
+    const directions = ["U (Utara)", "TL (Timur Laut)", "T (Timur)", "TG (Tenggara)", "S (Selatan)", "BD (Barat Daya)", "B (Barat)", "BL (Barat Laut)"];
+    const cardinal = directions[Math.round(deg / 45) % 8];
+    return { deg, cardinal };
+  }, [history]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 p-3 sm:p-5 md:p-8">
@@ -366,83 +406,142 @@ export default function TrackerDashboard() {
           </div>
         </section>
 
-        {/* Map Container & Interactive Controls */}
-        <section className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-              <h2 className="text-base sm:text-lg font-bold text-white">Live Tracking Map</h2>
-              <span className="text-xs text-slate-400 font-mono">({history.length} titik jejak)</span>
-            </div>
+        {/* Main Cockpit Section: Animated Speedometer HUD + Live Tracking Map */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* Left Column: Speedometer HUD & Cockpit Telemetry */}
+          <div className="lg:col-span-4 xl:col-span-4 flex flex-col gap-4">
+            <SpeedometerGauge
+              speed={isOnline && hasGpsFix ? current.speed : 0}
+              isOnline={isOnline}
+              history={history}
+            />
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                onClick={() => setFollowMarker(!followMarker)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
-                  followMarker
-                    ? "bg-blue-600/20 border-blue-500/40 text-blue-300"
-                    : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
-                }`}
-              >
-                <Radio className="w-3.5 h-3.5" />
-                <span>Follow Marker: {followMarker ? "ON" : "OFF"}</span>
-              </button>
-
-              <button
-                onClick={handleResetAll}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
-                title="Hapus jejak riwayat"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Rute</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Leaflet Map Responsive Viewport */}
-          <div className="w-full h-[380px] sm:h-[460px] md:h-[540px] lg:h-[600px]">
-            {mounted ? (
-              <MapTracker
-                currentLat={displayLat}
-                currentLng={displayLng}
-                history={history}
-                isOnline={isOnline}
-                followMarker={followMarker}
-                speed={isOnline ? current.speed : 0}
-              />
-            ) : (
-              <div className="w-full h-full min-h-[360px] bg-slate-900/60 flex flex-col items-center justify-center gap-3 text-slate-400 rounded-2xl border border-slate-800">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-medium">Memuat Peta OpenStreetMap...</p>
+            {/* Quick Cockpit Telemetry Card */}
+            <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-3 shadow-xl">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-semibold border-b border-slate-800/80 pb-2.5">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <Compass className="w-4 h-4 text-cyan-400" />
+                  KOKPIT NAVIGASI
+                </span>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono">
+                  LIVE 2.5s
+                </span>
               </div>
-            )}
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="text-[10px] text-slate-400 block font-medium">ARAH GERAK</span>
+                  <strong className="text-white font-mono text-xs sm:text-sm block mt-0.5 truncate">
+                    {headingInfo.cardinal}
+                  </strong>
+                  <span className="text-[10px] text-cyan-400 font-mono">{headingInfo.deg}° Azimuth</span>
+                </div>
+
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="text-[10px] text-slate-400 block font-medium">JARAK TEMPUH</span>
+                  <strong className="text-white font-mono text-xs sm:text-sm block mt-0.5">
+                    {totalTripDistanceKm.toFixed(2)} <span className="text-xs font-normal text-slate-400">km</span>
+                  </strong>
+                  <span className="text-[10px] text-emerald-400 font-mono">{history.length} titik jejak</span>
+                </div>
+
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="text-[10px] text-slate-400 block font-medium">KETINGGIAN</span>
+                  <strong className="text-white font-mono text-xs sm:text-sm block mt-0.5">
+                    {isOnline && hasGpsFix ? current.altitude.toFixed(1) : "--"} <span className="text-xs font-normal text-slate-400">mdpl</span>
+                  </strong>
+                  <span className="text-[10px] text-indigo-400 font-mono">Elevasi GPS</span>
+                </div>
+
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="text-[10px] text-slate-400 block font-medium">CLOUD STORAGE</span>
+                  <strong className="text-emerald-300 font-mono text-xs block mt-0.5 truncate">
+                    Neon Postgres
+                  </strong>
+                  <span className="text-[10px] text-slate-400 font-mono">AWS Singapore</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Footer Info / Telemetry Log */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-1 text-xs text-slate-400">
-            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Terakhir Dilihat:
-              </span>
-              <strong className="text-slate-200">
-                {isOnline ? "Baru saja (Live)" : data?.lastSeenSecondsAgo ? `${data.lastSeenSecondsAgo} detik lalu` : "Belum aktif"}
-              </strong>
+          {/* Right Column: Live Tracking Map */}
+          <div className="lg:col-span-8 xl:col-span-8 bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4 shadow-2xl flex flex-col justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                <h2 className="text-base sm:text-lg font-bold text-white">Live Tracking Map</h2>
+                <span className="text-xs text-slate-400 font-mono">({history.length} titik jejak)</span>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => setFollowMarker(!followMarker)}
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                    followMarker
+                      ? "bg-blue-600/20 border-blue-500/40 text-blue-300"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>Follow Marker: {followMarker ? "ON" : "OFF"}</span>
+                </button>
+
+                <button
+                  onClick={handleResetAll}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
+                  title="Hapus jejak riwayat"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Rute</span>
+                </button>
+              </div>
             </div>
 
-            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
-              <span>Status Satelit:</span>
-              <span className={isOnline ? (hasGpsFix ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold") : "text-rose-400 font-semibold"}>
-                {isOnline 
-                  ? (hasGpsFix ? `${current.satellites} Satelit Terkunci` : "Mencari Sinyal (Indoor)") 
-                  : "Alat Dicabut / Tidak Aktif"}
-              </span>
+            {/* Leaflet Map Responsive Viewport */}
+            <div className="w-full h-[380px] sm:h-[460px] md:h-[500px] lg:h-[520px]">
+              {mounted ? (
+                <MapTracker
+                  currentLat={displayLat}
+                  currentLng={displayLng}
+                  history={history}
+                  isOnline={isOnline}
+                  followMarker={followMarker}
+                  speed={isOnline ? current.speed : 0}
+                />
+              ) : (
+                <div className="w-full h-full min-h-[360px] bg-slate-900/60 flex flex-col items-center justify-center gap-3 text-slate-400 rounded-2xl border border-slate-800">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm font-medium">Memuat Peta OpenStreetMap...</p>
+                </div>
+              )}
             </div>
 
-            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
-              <span>Status Alat:</span>
-              <span className={isOnline ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
-                {isOnline ? "Online Mengirim Telemetri" : "Offline / USB Dicabut"}
-              </span>
+            {/* Footer Info / Telemetry Log */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-1 text-xs text-slate-400">
+              <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Terakhir Dilihat:
+                </span>
+                <strong className="text-slate-200">
+                  {isOnline ? "Baru saja (Live)" : data?.lastSeenSecondsAgo ? `${data.lastSeenSecondsAgo} detik lalu` : "Belum aktif"}
+                </strong>
+              </div>
+
+              <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                <span>Status Satelit:</span>
+                <span className={isOnline ? (hasGpsFix ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold") : "text-rose-400 font-semibold"}>
+                  {isOnline 
+                    ? (hasGpsFix ? `${current.satellites} Satelit Terkunci` : "Mencari Sinyal (Indoor)") 
+                    : "Alat Dicabut / Tidak Aktif"}
+                </span>
+              </div>
+
+              <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                <span>Status Alat:</span>
+                <span className={isOnline ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
+                  {isOnline ? "Online Mengirim Telemetri" : "Offline / USB Dicabut"}
+                </span>
+              </div>
             </div>
           </div>
         </section>
