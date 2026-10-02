@@ -28,7 +28,17 @@ export async function initDb() {
       );
     `;
     await sql`
-      CREATE INDEX IF NOT EXISTS idx_gps_logs_created_at ON gps_logs (created_at DESC);
+      CREATE TABLE IF NOT EXISTS device_heartbeat (
+        device_id VARCHAR(64) PRIMARY KEY,
+        last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        is_fixed BOOLEAN NOT NULL DEFAULT FALSE,
+        satellites INT NOT NULL DEFAULT 0,
+        speed REAL NOT NULL DEFAULT 0,
+        altitude REAL NOT NULL DEFAULT 0,
+        latitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+        longitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+        raw_status TEXT NOT NULL DEFAULT ''
+      );
     `;
     return true;
   } catch (err) {

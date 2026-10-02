@@ -73,6 +73,22 @@ export async function GET() {
   // Jika Neon Postgres tersedia, baca data permanen dari database
   if (sql) {
     try {
+      // Baca status heartbeat perangkat terbaru
+      let hb: any = null;
+      try {
+        const hbRows = await sql`
+          SELECT last_seen, is_fixed, satellites, speed, altitude, latitude, longitude, raw_status
+          FROM device_heartbeat
+          WHERE device_id = ${store.deviceId}
+          LIMIT 1;
+        `;
+        if (hbRows && hbRows.length > 0) {
+          hb = hbRows[0];
+        }
+      } catch (hbErr) {
+        console.error("Gagal query device_heartbeat:", hbErr);
+      }
+
       // Ambil 250 titik koordinat terbaru
       const rows = await sql`
         SELECT latitude, longitude, speed, altitude, satellites, created_at 
@@ -80,6 +96,11 @@ export async function GET() {
         ORDER BY created_at DESC 
         LIMIT 250;
       `;
+
+      const now = Date.now();
+      const hbTime = hb ? new Date(hb.last_seen).getTime() : 0;
+      const isOnline = hb ? now - hbTime < 15000 : false;
+      const secondsAgo = hb ? Math.max(0, Math.floor((now - hbTime) / 1000)) : null;
 
       if (rows && rows.length > 0) {
         // Balikkan urutan agar kronologis dari yang terlama ke terbaru
@@ -92,32 +113,58 @@ export async function GET() {
           timestamp: new Date(r.created_at).toISOString(),
         }));
 
-        const latest = dbHistory[dbHistory.length - 1];
-        const latestTime = new Date(latest.timestamp).getTime();
-        const now = Date.now();
-        const isOnline = now - latestTime < 25000;
-        const secondsAgo = Math.floor((now - latestTime) / 1000);
+        const latestFromLogs = dbHistory[dbHistory.length - 1];
+        const isFixed = hb ? hb.is_fixed : (latestFromLogs.lat !== 0 && latestFromLogs.satellites >= 3);
+        
+        let statusText = isOnline
+          ? (isFixed ? `Online (Terkunci ${hb?.satellites ?? latestFromLogs.satellites} Satelit)` : `Online (Mencari Satelit...)`)
+          : "Offline (Data tersimpan di Neon)";
 
         return NextResponse.json({
           deviceId: store.deviceId,
           wemosIp: store.wemosIp,
           isOnline,
-          isFixed: latest.lat !== 0 && latest.satellites >= 3,
-          rawStatus: isOnline ? "Online (Tersimpan di Neon DB)" : "Offline (Data tersimpan di Neon)",
+          isFixed,
+          rawStatus: statusText,
           lastSeenSecondsAgo: secondsAgo,
-          current: latest,
+          current: isOnline && hb && hb.latitude !== 0 ? {
+            lat: parseFloat(hb.latitude),
+            lng: parseFloat(hb.longitude),
+            speed: parseFloat(hb.speed) || 0,
+            altitude: parseFloat(hb.altitude) || 0,
+            satellites: parseInt(hb.satellites) || 0,
+            timestamp: new Date(hb.last_seen).toISOString(),
+          } : latestFromLogs,
           history: dbHistory,
           storage: "neon-postgres",
         });
       } else {
+        // Belum ada koordinat fix di log riwayat
+        const isFixed = hb ? hb.is_fixed : false;
+        let statusText = "Menunggu data Wemos...";
+        if (isOnline) {
+          statusText = isFixed 
+            ? `Online (Terkunci ${hb.satellites} Satelit)` 
+            : `Online - Sedang Mencari Satelit (${hb?.satellites ?? 0} Satelit terdeteksi)...`;
+        } else if (hb) {
+          statusText = "Alat Offline / Dicabut";
+        }
+
         return NextResponse.json({
           deviceId: store.deviceId,
           wemosIp: store.wemosIp,
-          isOnline: false,
-          isFixed: false,
-          rawStatus: "Siap (Neon Postgres terhubung, menunggu data Wemos...)",
-          lastSeenSecondsAgo: null,
-          current: store.current,
+          isOnline,
+          isFixed,
+          rawStatus: statusText,
+          lastSeenSecondsAgo: isOnline ? secondsAgo : null,
+          current: hb ? {
+            lat: parseFloat(hb.latitude) || 0,
+            lng: parseFloat(hb.longitude) || 0,
+            speed: parseFloat(hb.speed) || 0,
+            altitude: parseFloat(hb.altitude) || 0,
+            satellites: parseInt(hb.satellites) || 0,
+            timestamp: new Date(hb.last_seen).toISOString(),
+          } : store.current,
           history: [],
           storage: "neon-postgres",
         });
@@ -177,6 +224,27 @@ export async function POST(req: Request) {
     if (sql && !store.dbInitialized) {
       await initDb();
       store.dbInitialized = true;
+    }
+
+    // Selalu perbarui status heartbeat terkini alat ke Neon DB
+    if (sql) {
+      try {
+        await sql`
+          INSERT INTO device_heartbeat (device_id, last_seen, is_fixed, satellites, speed, altitude, latitude, longitude, raw_status)
+          VALUES (${store.deviceId}, NOW(), ${isFixed}, ${sats}, ${speed}, ${altitude}, ${point.lat}, ${point.lng}, ${store.rawStatus})
+          ON CONFLICT (device_id) DO UPDATE SET
+            last_seen = NOW(),
+            is_fixed = EXCLUDED.is_fixed,
+            satellites = EXCLUDED.satellites,
+            speed = EXCLUDED.speed,
+            altitude = EXCLUDED.altitude,
+            latitude = CASE WHEN EXCLUDED.latitude != 0 THEN EXCLUDED.latitude ELSE device_heartbeat.latitude END,
+            longitude = CASE WHEN EXCLUDED.longitude != 0 THEN EXCLUDED.longitude ELSE device_heartbeat.longitude END,
+            raw_status = EXCLUDED.raw_status;
+        `;
+      } catch (hbErr) {
+        console.error("Gagal simpan device_heartbeat ke Neon:", hbErr);
+      }
     }
 
     if (isFixed && lat !== 0) {

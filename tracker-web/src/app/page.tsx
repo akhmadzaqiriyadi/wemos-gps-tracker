@@ -175,17 +175,27 @@ export default function TrackerDashboard() {
             {/* Status Badge */}
             <div
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                isOnline
+                !isOnline
+                  ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                  : isFixed
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-400"
               }`}
             >
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
-                  isOnline ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+                  !isOnline
+                    ? "bg-rose-500"
+                    : isFixed
+                    ? "bg-emerald-400 animate-pulse"
+                    : "bg-amber-400 animate-pulse"
                 }`}
               ></span>
-              {isOnline ? "ALAT ONLINE (LIVE)" : "ALAT DICABUT / OFFLINE"}
+              {!isOnline
+                ? "ALAT DICABUT / OFFLINE"
+                : isFixed
+                ? "ALAT ONLINE (GPS TERKUNCI)"
+                : "ALAT ONLINE (MENCARI SATELIT)"}
             </div>
 
             <button
