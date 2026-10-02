@@ -9,6 +9,22 @@ export interface GPSPoint {
   timestamp: string;
 }
 
+// Rumus Haversine untuk hitung jarak dalam meter
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 // Global in-memory storage
 const globalGps = global as unknown as {
   gpsData?: {
@@ -45,45 +61,6 @@ export async function GET() {
   const store = globalGps.gpsData!;
   const now = Date.now();
 
-  // Coba fetch langsung dari Wemos di jaringan lokal jika ada IP
-  if (store.wemosIp && now - store.lastUpdate > 4000) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const res = await fetch(`http://${store.wemosIp}/api/gps`, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const wemosData = await res.json();
-        const hasFix = wemosData.valid === true && wemosData.lat !== 0;
-        
-        store.current = {
-          lat: wemosData.lat || 0,
-          lng: wemosData.lng || 0,
-          speed: wemosData.speed || 0,
-          altitude: wemosData.altitude || 0,
-          satellites: wemosData.satellites || 0,
-          timestamp: new Date().toISOString(),
-        };
-        store.isFixed = hasFix;
-        store.lastUpdate = Date.now();
-        store.rawStatus = hasFix 
-          ? `Lock Sinyal (${wemosData.satellites} Satelit)` 
-          : `Indoor: Mencari Sinyal (${wemosData.chars} byte terbaca)`;
-
-        if (hasFix) {
-          store.history.push({ ...store.current });
-          if (store.history.length > 150) store.history.shift();
-        }
-      }
-    } catch (e) {
-      // Wemos belum bisa dijangkau langsung via browser/server
-    }
-  }
-
   const isOnline = store.lastUpdate > 0 && now - store.lastUpdate < 20000;
   const secondsAgo = store.lastUpdate > 0 ? Math.floor((now - store.lastUpdate) / 1000) : null;
 
@@ -106,11 +83,12 @@ export async function POST(req: Request) {
     const lng = parseFloat(body.lng);
     const sats = parseInt(body.satellites) || 0;
     const isFixed = body.valid === true || (lat !== 0 && sats >= 3);
+    const speed = parseFloat(body.speed) || 0;
 
     const point: GPSPoint = {
       lat: isNaN(lat) ? 0 : lat,
       lng: isNaN(lng) ? 0 : lng,
-      speed: parseFloat(body.speed) || 0,
+      speed,
       altitude: parseFloat(body.altitude) || 0,
       satellites: sats,
       timestamp: new Date().toISOString(),
@@ -124,10 +102,21 @@ export async function POST(req: Request) {
       ? `Terkunci (${sats} Satelit)`
       : `Mencari Satelit (${sats} Sats terlihat)...`;
 
+    // Filter Jitter (Peredam Gerigi):
+    // Hanya rekam titik baru jika jarak gerak minimal 2.5 meter dari titik terakhir
     if (isFixed && lat !== 0) {
-      store.history.push(point);
-      if (store.history.length > 150) {
-        store.history.shift();
+      const lastPoint = store.history[store.history.length - 1];
+      if (!lastPoint) {
+        store.history.push(point);
+      } else {
+        const dist = getDistanceMeters(lastPoint.lat, lastPoint.lng, lat, lng);
+        // Abaikan loncatan noise di bawah 2.5 meter saat posisi diam
+        if (dist >= 2.5 || speed > 3) {
+          store.history.push(point);
+          if (store.history.length > 200) {
+            store.history.shift();
+          }
+        }
       }
     }
 
