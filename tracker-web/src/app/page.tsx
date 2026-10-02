@@ -349,6 +349,7 @@ export default function TrackerDashboard() {
                 history={history}
                 isOnline={isOnline}
                 followMarker={followMarker}
+                speed={current.speed}
               />
             ) : (
               <div className="w-full h-full min-h-[460px] bg-slate-900/60 flex flex-col items-center justify-center gap-3 text-slate-400 rounded-2xl border border-slate-800">
