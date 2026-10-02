@@ -1,6 +1,32 @@
 import { NextResponse } from "next/server";
 
-// Simulasi pergerakan jalur kendaraan yang halus dan realistis
+// Rute jalan asli yang presisi (Jalan Siliwangi / UTY -> Ringroad Barat -> Jl. Kyai Mojo -> Jl. Bener)
+// Semua koordinat ini berada persis di atas jalan raya (tidak melenceng/menabrak bangunan)
+const ROAD_WAYPOINTS: Array<[number, number]> = [
+  [-7.747035, 110.355398], // 0: Depan Kampus 1 UTY (Jl. Siliwangi)
+  [-7.747350, 110.354100], // 1: Jl. Siliwangi arah Barat
+  [-7.747800, 110.352200], // 2: Mendekati Simpang Kronggahan
+  [-7.748300, 110.350600], // 3: Simpang Kronggahan
+  [-7.749000, 110.348900], // 4: Masuk ke Jl. Ringroad Barat
+  [-7.750500, 110.348400], // 5: Menyusuri Ringroad Barat ke Selatan
+  [-7.752500, 110.348250], // 6: Ringroad Barat
+  [-7.755000, 110.348100], // 7: Ringroad Barat
+  [-7.758000, 110.348050], // 8: Ringroad Barat
+  [-7.761000, 110.348150], // 9: Mendekati Simpang Demak Ijo
+  [-7.763200, 110.348300], // 10: Simpang Demak Ijo (Belok Kiri ke Jl. Kyai Mojo)
+  [-7.763350, 110.350200], // 11: Jl. Kyai Mojo
+  [-7.763550, 110.352800], // 12: Jl. Kyai Mojo
+  [-7.763750, 110.355500], // 13: Jl. Kyai Mojo
+  [-7.763850, 110.358800], // 14: Perempatan Pingit / Jl. Bener
+  [-7.761800, 110.358900], // 15: Masuk Jalan Bener (Persis di atas aspal Jl. Bener)
+  [-7.758500, 110.358850], // 16: Jl. Bener
+  [-7.755500, 110.358750], // 17: Jl. Bener
+  [-7.752500, 110.358650], // 18: Jl. Bener
+  [-7.749500, 110.358550], // 19: Jl. Bener arah Utara
+  [-7.747500, 110.358450], // 20: Pertigaan kembali ke Jl. Siliwangi
+  [-7.747200, 110.356800], // 21: Jl. Siliwangi kembali ke Kampus UTY
+];
+
 export async function POST() {
   const globalGps = global as unknown as {
     gpsData?: {
@@ -16,7 +42,7 @@ export async function POST() {
       lastUpdate: number;
       deviceId: string;
       isFixed?: boolean;
-      heading?: number;
+      waypointIndex?: number;
     };
   };
 
@@ -26,33 +52,22 @@ export async function POST() {
 
   const store = globalGps.gpsData;
 
-  // Inisialisasi posisi awal jika masih 0,0
-  if (store.current.lat === 0 && store.current.lng === 0) {
-    store.current.lat = -7.747035;
-    store.current.lng = 110.355398;
-    store.heading = 45; // Menghadap timur laut mengikuti jalan
+  // Lacak indeks waypoint di jalan nyata
+  if (store.waypointIndex === undefined || store.waypointIndex < 0) {
+    store.waypointIndex = 0;
+  } else {
+    store.waypointIndex = (store.waypointIndex + 1) % ROAD_WAYPOINTS.length;
   }
 
-  if (store.heading === undefined) {
-    store.heading = 45;
-  }
-
-  // Berikan sedikit belokan bertahap (+- 8 derajat) agar rute meliuk halus seperti jalan raya
-  store.heading += (Math.random() - 0.5) * 16;
-  const rad = (store.heading * Math.PI) / 180;
-
-  // Jarak tempuh per titik ~ 15-25 meter (0.00015 - 0.00025 derajat)
-  const step = 0.00018 + Math.random() * 0.00007;
-  const newLat = store.current.lat + Math.sin(rad) * step;
-  const newLng = store.current.lng + Math.cos(rad) * step;
-  const newSpeed = Math.floor(28 + Math.random() * 15);
-  const newSats = Math.floor(8 + Math.random() * 3);
+  const [targetLat, targetLng] = ROAD_WAYPOINTS[store.waypointIndex];
+  const newSpeed = Math.floor(32 + Math.random() * 12);
+  const newSats = Math.floor(9 + Math.random() * 3);
 
   const point = {
-    lat: parseFloat(newLat.toFixed(6)),
-    lng: parseFloat(newLng.toFixed(6)),
+    lat: targetLat,
+    lng: targetLng,
     speed: newSpeed,
-    altitude: parseFloat((145 + Math.random() * 4).toFixed(1)),
+    altitude: parseFloat((145 + Math.random() * 3).toFixed(1)),
     satellites: newSats,
     timestamp: new Date().toISOString(),
   };
@@ -61,9 +76,14 @@ export async function POST() {
   store.lastUpdate = Date.now();
   store.isFixed = true;
   store.history.push(point);
+
   if (store.history.length > 200) {
     store.history.shift();
   }
 
-  return NextResponse.json({ success: true, point });
+  return NextResponse.json({
+    success: true,
+    waypointIndex: store.waypointIndex,
+    point,
+  });
 }

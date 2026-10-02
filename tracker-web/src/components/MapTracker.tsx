@@ -45,8 +45,18 @@ const TILE_LAYERS = {
 
 type LayerKey = keyof typeof TILE_LAYERS;
 
-// Algoritma Chaikin Smoothing untuk memuluskan lekukan titik GPS
-function smoothPolyline(points: Array<[number, number]>, iterations = 2): Array<[number, number]> {
+// Hitung sudut arah gerak (Bearing 0-360 derajat)
+function getBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const y = Math.sin(((lon2 - lon1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(((lon2 - lon1) * Math.PI) / 180);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
+// Algoritma Chaikin Smoothing presisi tinggi (menjaga titik awal dan ujung tetap pas)
+function smoothPolyline(points: Array<[number, number]>, iterations = 1): Array<[number, number]> {
   if (points.length < 3) return points;
   let current = points;
 
@@ -58,14 +68,14 @@ function smoothPolyline(points: Array<[number, number]>, iterations = 2): Array<
       const p0 = current[i];
       const p1 = current[i + 1];
 
-      // Potong sudut pada titik 25% dan 75%
+      // Potong sudut halus
       const q: [number, number] = [
-        0.75 * p0[0] + 0.25 * p1[0],
-        0.75 * p0[1] + 0.25 * p1[1],
+        0.8 * p0[0] + 0.2 * p1[0],
+        0.8 * p0[1] + 0.2 * p1[1],
       ];
       const r: [number, number] = [
-        0.25 * p0[0] + 0.75 * p1[0],
-        0.25 * p0[1] + 0.75 * p1[1],
+        0.2 * p0[0] + 0.8 * p1[0],
+        0.2 * p0[1] + 0.8 * p1[1],
       ];
 
       smoothed.push(q);
@@ -95,13 +105,44 @@ export default function MapTracker({
   const currentTileLayerRef = useRef<L.TileLayer | null>(null);
   const [activeLayer, setActiveLayer] = useState<LayerKey>("streets");
 
+  // Hitung sudut rotasi arah kendaraan (Heading)
+  const currentHeading = useMemo(() => {
+    const validHistory = history.filter((p) => p.lat !== 0 && p.lng !== 0);
+    if (validHistory.length >= 2) {
+      const pPrev = validHistory[validHistory.length - 2];
+      const pCurr = validHistory[validHistory.length - 1];
+      return getBearing(pPrev.lat, pPrev.lng, pCurr.lat, pCurr.lng);
+    }
+    return 0;
+  }, [history]);
+
   // Format dan haluskan jejak rute
   const smoothedLatLngs = useMemo(() => {
     const rawCoords: Array<[number, number]> = history
       .filter((p) => p.lat !== 0 && p.lng !== 0)
       .map((p) => [p.lat, p.lng]);
-    return smoothPolyline(rawCoords, 2);
+    return smoothPolyline(rawCoords, 1);
   }, [history]);
+
+  const createMarkerHtml = (headingDeg: number) => `
+    <div class="relative flex items-center justify-center">
+      <span class="absolute w-11 h-11 rounded-full ${
+        isOnline ? "bg-cyan-500/40 animate-ping" : "bg-blue-500/20"
+      }"></span>
+      <div class="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 ring-4 ring-white/50 text-white shadow-2xl">
+        <div style="transform: rotate(${headingDeg}deg); transition: transform 0.4s ease-out;" class="flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="12,2 22,21 12,17 2,21"/>
+          </svg>
+        </div>
+      </div>
+      ${speed > 0 ? `
+        <div class="absolute -top-6 px-1.5 py-0.5 rounded-md bg-slate-900/90 text-[10px] font-bold text-cyan-400 border border-cyan-500/40 shadow backdrop-blur-md">
+          ${speed.toFixed(0)} km/h
+        </div>
+      ` : ''}
+    </div>
+  `;
 
   // Inisialisasi Map
   useEffect(() => {
@@ -119,26 +160,10 @@ export default function MapTracker({
     const tileLayer = L.tileLayer(initialConfig.url, initialConfig.options).addTo(map);
     currentTileLayerRef.current = tileLayer;
 
-    // Custom Icon Pin
+    // Custom Icon Pin dengan rotasi arah yang presisi
     const customIcon = L.divIcon({
       className: "custom-gps-pin",
-      html: `
-        <div class="relative flex items-center justify-center transition-all duration-300">
-          <span class="absolute w-11 h-11 rounded-full ${
-            isOnline ? "bg-cyan-500/40 animate-ping" : "bg-blue-500/20"
-          }"></span>
-          <div class="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 ring-4 ring-white/40 text-white shadow-2xl">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-            </svg>
-          </div>
-          ${speed > 0 ? `
-            <div class="absolute -top-6 px-1.5 py-0.5 rounded-md bg-slate-900/90 text-[10px] font-bold text-cyan-400 border border-cyan-500/40 shadow backdrop-blur-md">
-              ${speed.toFixed(0)} km/h
-            </div>
-          ` : ''}
-        </div>
-      `,
+      html: createMarkerHtml(currentHeading),
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
@@ -148,7 +173,7 @@ export default function MapTracker({
     // 1. Layer Glow Luar (Ambient Glow)
     const polyGlow = L.polyline(smoothedLatLngs, {
       color: "#0284c7",
-      weight: 10,
+      weight: 8,
       opacity: 0.35,
       lineCap: "round",
       lineJoin: "round",
@@ -186,46 +211,30 @@ export default function MapTracker({
     setActiveLayer(key);
   };
 
-  // Update posisi marker dan jalur
+  // Update posisi marker, rotasi arah, dan rute
   useEffect(() => {
     if (!mapRef.current || !markerRef.current || !polylineCoreRef.current || !polylineGlowRef.current) return;
 
     const newPos: [number, number] = [currentLat, currentLng];
     markerRef.current.setLatLng(newPos);
 
-    // Update custom icon
+    // Update custom icon dengan rotasi arah kendaraan yang dinamis
     const customIcon = L.divIcon({
       className: "custom-gps-pin",
-      html: `
-        <div class="relative flex items-center justify-center transition-all duration-300">
-          <span class="absolute w-11 h-11 rounded-full ${
-            isOnline ? "bg-cyan-500/40 animate-ping" : "bg-blue-500/20"
-          }"></span>
-          <div class="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 ring-4 ring-white/40 text-white shadow-2xl">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-            </svg>
-          </div>
-          ${speed > 0 ? `
-            <div class="absolute -top-6 px-1.5 py-0.5 rounded-md bg-slate-900/90 text-[10px] font-bold text-cyan-400 border border-cyan-500/40 shadow backdrop-blur-md">
-              ${speed.toFixed(0)} km/h
-            </div>
-          ` : ''}
-        </div>
-      `,
+      html: createMarkerHtml(currentHeading),
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
     markerRef.current.setIcon(customIcon);
 
-    // Update kedua layer polyline yang sudah dihaluskan
+    // Update kedua layer polyline
     polylineGlowRef.current.setLatLngs(smoothedLatLngs);
     polylineCoreRef.current.setLatLngs(smoothedLatLngs);
 
     if (followMarker) {
-      mapRef.current.panTo(newPos, { animate: true, duration: 0.6 });
+      mapRef.current.panTo(newPos, { animate: true, duration: 0.5 });
     }
-  }, [currentLat, currentLng, smoothedLatLngs, isOnline, followMarker, speed]);
+  }, [currentLat, currentLng, smoothedLatLngs, currentHeading, isOnline, followMarker, speed]);
 
   return (
     <div className="w-full h-full relative rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60 group">
