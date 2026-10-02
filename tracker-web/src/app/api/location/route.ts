@@ -129,5 +129,16 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const store = globalGps.gpsData!;
   store.history = [];
-  return NextResponse.json({ success: true, message: "History cleared" });
+  store.current = {
+    lat: 0,
+    lng: 0,
+    speed: 0,
+    altitude: 0,
+    satellites: 0,
+    timestamp: new Date().toISOString(),
+  };
+  store.isFixed = false;
+  store.lastUpdate = 0;
+  store.rawStatus = "Menunggu modul aktif...";
+  return NextResponse.json({ success: true, message: "Data reset to zero" });
 }
