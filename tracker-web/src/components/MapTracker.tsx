@@ -237,9 +237,9 @@ export default function MapTracker({
   }, [currentLat, currentLng, smoothedLatLngs, currentHeading, isOnline, followMarker, speed]);
 
   return (
-    <div className="w-full h-full relative rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60 group">
+    <div className="w-full h-full relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60 group">
       {/* Floating Layer Switcher Buttons */}
-      <div className="absolute top-4 left-4 z-[500] flex items-center gap-1.5 p-1.5 bg-slate-950/85 backdrop-blur-md rounded-2xl border border-slate-800 shadow-xl">
+      <div className="absolute top-2.5 left-2.5 sm:top-4 sm:left-4 z-[500] flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-950/90 backdrop-blur-md rounded-xl sm:rounded-2xl border border-slate-800 shadow-xl max-w-[calc(100%-20px)] overflow-x-auto scrollbar-none">
         {(Object.keys(TILE_LAYERS) as LayerKey[]).map((key) => {
           const l = TILE_LAYERS[key];
           const isActive = activeLayer === key;
@@ -247,7 +247,7 @@ export default function MapTracker({
             <button
               key={key}
               onClick={() => switchLayer(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-100"
                   : "text-slate-300 hover:text-white hover:bg-slate-800/80"
@@ -260,7 +260,7 @@ export default function MapTracker({
         })}
       </div>
 
-      <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
+      <div ref={mapContainerRef} className="w-full h-full min-h-[360px] sm:min-h-[460px] z-0" />
     </div>
   );
 }

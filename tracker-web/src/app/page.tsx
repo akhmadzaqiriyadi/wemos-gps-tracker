@@ -139,43 +139,45 @@ export default function TrackerDashboard() {
   const displayLng = hasCoordinates ? current.lng : (history[0]?.lng || 110.355398);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 p-3 sm:p-5 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
         {/* Top Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Navigation className="w-6 h-6 text-white" />
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <Navigation className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white">
                   IoT Real-Time GPS Tracker
                 </h1>
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  OpenStreetMap
-                </span>
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Neon DB Active
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2 py-0.5 text-[10px] sm:text-xs font-semibold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    OpenStreetMap
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] sm:text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Neon DB Active
+                  </span>
+                </div>
               </div>
-              <p className="text-xs md:text-sm text-slate-400 flex items-center gap-2 mt-0.5">
+              <p className="text-[11px] sm:text-xs md:text-sm text-slate-400 flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
                 <span>Hardware: <strong>Wemos D1 Mini Pro</strong> + <strong>u-blox NEO-6M</strong></span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1 text-emerald-400">
-                  <Wifi className="w-3.5 h-3.5" /> iPhone 16 Pro Zaqi
+                <span className="hidden sm:inline">•</span>
+                <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                  <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> iPhone 16 Pro Zaqi
                 </span>
               </p>
             </div>
           </div>
 
           {/* Status Badge & Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
             {/* Status Badge */}
             <div
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                 !isOnline
                   ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
                   : isFixed
@@ -184,7 +186,7 @@ export default function TrackerDashboard() {
               }`}
             >
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
+                className={`w-2 h-2 rounded-full shrink-0 ${
                   !isOnline
                     ? "bg-rose-500"
                     : isFixed
@@ -192,40 +194,45 @@ export default function TrackerDashboard() {
                     : "bg-amber-400 animate-pulse"
                 }`}
               ></span>
-              {!isOnline
-                ? "ALAT DICABUT / OFFLINE"
-                : isFixed
-                ? "ALAT ONLINE (GPS TERKUNCI)"
-                : "ALAT ONLINE (MENCARI SATELIT)"}
+              <span className="truncate">
+                {!isOnline
+                  ? "ALAT DICABUT / OFFLINE"
+                  : isFixed
+                  ? "ALAT ONLINE (GPS TERKUNCI)"
+                  : "ALAT ONLINE (MENCARI SATELIT)"}
+              </span>
             </div>
 
-            <button
-              onClick={fetchData}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
-              title="Perbarui data sekarang"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh</span>
-            </button>
+            {/* Action Buttons Toolbar */}
+            <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={fetchData}
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
+                title="Perbarui data sekarang"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
 
-            <button
-              onClick={handleSimulate}
-              disabled={simulating}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-medium rounded-xl transition shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
-              title="Kirim koordinat uji coba untuk melihat animasi pergerakan marker"
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Tes Simulasi</span>
-            </button>
+              <button
+                onClick={handleSimulate}
+                disabled={simulating}
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-blue-600/90 hover:bg-blue-600 active:bg-blue-500 text-white text-xs font-medium rounded-xl transition shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
+                title="Kirim koordinat uji coba untuk melihat animasi pergerakan marker"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Simulasi</span>
+              </button>
 
-            <button
-              onClick={handleResetAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-xs font-medium rounded-xl transition shadow-sm active:scale-95"
-              title="Kosongkan data dan reset ke posisi awal"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Reset Data</span>
-            </button>
+              <button
+                onClick={handleResetAll}
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 active:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-medium rounded-xl transition shadow-sm active:scale-95"
+                title="Kosongkan data dan reset ke posisi awal"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -262,40 +269,42 @@ export default function TrackerDashboard() {
         ) : null}
 
         {/* Stats Metric Cards */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {/* Satelit */}
-          <div className="p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span className="font-medium">Satelit Terkunci</span>
-              <Satellite className="w-4 h-4 text-cyan-400" />
+          <div className="p-3.5 sm:p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="font-medium">Satelit</span>
+              <Satellite className="w-4 h-4 text-cyan-400 shrink-0" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl md:text-3xl font-extrabold text-white">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
                 {isOnline ? current.satellites : 0}
               </span>
               <span className="text-xs text-slate-400 font-normal">Sats</span>
             </div>
-            <div className="mt-2 text-[11px] flex items-center gap-1 text-slate-400">
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? (hasGpsFix ? "bg-emerald-400" : "bg-amber-400") : "bg-rose-500"}`}></span>
-              {isOnline 
-                ? (hasGpsFix ? "3D Fix Optimal" : "Mencari satelit...") 
-                : "Alat Terputus"}
+            <div className="mt-2 text-[10px] sm:text-[11px] flex items-center gap-1.5 text-slate-400 truncate">
+              <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${isOnline ? (hasGpsFix ? "bg-emerald-400" : "bg-amber-400") : "bg-rose-500"}`}></span>
+              <span className="truncate">
+                {isOnline 
+                  ? (hasGpsFix ? "3D Fix Optimal" : "Mencari satelit...") 
+                  : "Alat Terputus"}
+              </span>
             </div>
           </div>
 
           {/* Kecepatan */}
-          <div className="p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span className="font-medium">Kecepatan Saat Ini</span>
-              <Gauge className="w-4 h-4 text-emerald-400" />
+          <div className="p-3.5 sm:p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="font-medium">Kecepatan</span>
+              <Gauge className="w-4 h-4 text-emerald-400 shrink-0" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl md:text-3xl font-extrabold text-white">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
                 {isOnline && hasGpsFix ? current.speed.toFixed(1) : "0.0"}
               </span>
-              <span className="text-xs text-slate-400 font-normal">km/jam</span>
+              <span className="text-xs text-slate-400 font-normal">km/h</span>
             </div>
-            <div className="mt-2 text-[11px] text-slate-400">
+            <div className="mt-2 text-[10px] sm:text-[11px] text-slate-400 truncate">
               {isOnline 
                 ? (hasGpsFix && current.speed > 5 ? "Sedang Berjalan" : "Posisi Diam / Parkir")
                 : "Alat Mati / Parkir"}
@@ -303,34 +312,34 @@ export default function TrackerDashboard() {
           </div>
 
           {/* Ketinggian */}
-          <div className="p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span className="font-medium">Ketinggian (Altitude)</span>
-              <Mountain className="w-4 h-4 text-indigo-400" />
+          <div className="p-3.5 sm:p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="font-medium">Ketinggian</span>
+              <Mountain className="w-4 h-4 text-indigo-400 shrink-0" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl md:text-3xl font-extrabold text-white">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
                 {isOnline && hasGpsFix ? current.altitude.toFixed(1) : "--"}
               </span>
               <span className="text-xs text-slate-400 font-normal">mdpl</span>
             </div>
-            <div className="mt-2 text-[11px] text-slate-400">
+            <div className="mt-2 text-[10px] sm:text-[11px] text-slate-400 truncate">
               {isOnline 
-                ? (hasGpsFix ? "Di atas permukaan laut" : "Menunggu Lock GPS")
+                ? (hasGpsFix ? "Di atas laut" : "Menunggu Lock GPS")
                 : "Offline"}
             </div>
           </div>
 
           {/* Koordinat */}
-          <div className="p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
+          <div className="p-3.5 sm:p-4 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl relative overflow-hidden group hover:border-slate-700 transition">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
               <span className="font-medium">Koordinat GPS</span>
-              <MapPin className="w-4 h-4 text-rose-400" />
+              <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
             </div>
-            <div className="text-sm md:text-base font-bold text-white tracking-tight truncate">
+            <div className="font-mono text-xs sm:text-sm font-bold text-white tracking-tight truncate" title={hasCoordinates ? `${current.lat.toFixed(6)}, ${current.lng.toFixed(6)}` : ""}>
               {hasCoordinates ? `${current.lat.toFixed(5)}, ${current.lng.toFixed(5)}` : "Belum Ada Lokasi"}
             </div>
-            <div className="mt-2 flex items-center justify-between text-[11px]">
+            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-[11px] gap-2">
               {hasCoordinates ? (
                 <>
                   <button
@@ -351,25 +360,25 @@ export default function TrackerDashboard() {
                   </a>
                 </>
               ) : (
-                <span className="text-slate-500 text-[11px]">Menunggu GPS Fix</span>
+                <span className="text-slate-500 text-[10px] sm:text-[11px]">Menunggu GPS Fix</span>
               )}
             </div>
           </div>
         </section>
 
         {/* Map Container & Interactive Controls */}
-        <section className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-3xl p-4 md:p-6 space-y-4 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <section className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
-              <Layers className="w-5 h-5 text-blue-400" />
-              <h2 className="text-lg font-bold text-white">Live Tracking Map</h2>
-              <span className="text-xs text-slate-400">({history.length} jejak rute)</span>
+              <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              <h2 className="text-base sm:text-lg font-bold text-white">Live Tracking Map</h2>
+              <span className="text-xs text-slate-400 font-mono">({history.length} titik jejak)</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
               <button
                 onClick={() => setFollowMarker(!followMarker)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
                   followMarker
                     ? "bg-blue-600/20 border-blue-500/40 text-blue-300"
                     : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
@@ -381,7 +390,7 @@ export default function TrackerDashboard() {
 
               <button
                 onClick={handleResetAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
                 title="Hapus jejak riwayat"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -390,8 +399,8 @@ export default function TrackerDashboard() {
             </div>
           </div>
 
-          {/* Leaflet Map */}
-          <div className="w-full h-[520px]">
+          {/* Leaflet Map Responsive Viewport */}
+          <div className="w-full h-[380px] sm:h-[460px] md:h-[540px] lg:h-[600px]">
             {mounted ? (
               <MapTracker
                 currentLat={displayLat}
@@ -402,7 +411,7 @@ export default function TrackerDashboard() {
                 speed={isOnline ? current.speed : 0}
               />
             ) : (
-              <div className="w-full h-full min-h-[460px] bg-slate-900/60 flex flex-col items-center justify-center gap-3 text-slate-400 rounded-2xl border border-slate-800">
+              <div className="w-full h-full min-h-[360px] bg-slate-900/60 flex flex-col items-center justify-center gap-3 text-slate-400 rounded-2xl border border-slate-800">
                 <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm font-medium">Memuat Peta OpenStreetMap...</p>
               </div>
@@ -410,17 +419,17 @@ export default function TrackerDashboard() {
           </div>
 
           {/* Footer Info / Telemetry Log */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs text-slate-400">
-            <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-1 text-xs text-slate-400">
+            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-500" /> Terakhir Dilihat:
+                <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Terakhir Dilihat:
               </span>
               <strong className="text-slate-200">
                 {isOnline ? "Baru saja (Live)" : data?.lastSeenSecondsAgo ? `${data.lastSeenSecondsAgo} detik lalu` : "Belum aktif"}
               </strong>
             </div>
 
-            <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
               <span>Status Satelit:</span>
               <span className={isOnline ? (hasGpsFix ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold") : "text-rose-400 font-semibold"}>
                 {isOnline 
@@ -429,7 +438,7 @@ export default function TrackerDashboard() {
               </span>
             </div>
 
-            <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div className="p-2.5 sm:p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 flex items-center justify-between">
               <span>Status Alat:</span>
               <span className={isOnline ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
                 {isOnline ? "Online Mengirim Telemetri" : "Offline / USB Dicabut"}
