@@ -17,6 +17,8 @@ import {
   Check,
   ExternalLink,
   Layers,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 // Dynamic import Leaflet component agar tidak error SSR di Next.js
@@ -32,7 +34,10 @@ const MapTracker = dynamic(() => import("@/components/MapTracker"), {
 
 interface GPSData {
   deviceId: string;
+  wemosIp: string;
   isOnline: boolean;
+  isFixed: boolean;
+  rawStatus: string;
   lastSeenSecondsAgo: number | null;
   current: {
     lat: number;
@@ -83,7 +88,7 @@ export default function TrackerDashboard() {
   }, []);
 
   const copyCoordinates = () => {
-    if (!data?.current) return;
+    if (!data?.current || (data.current.lat === 0 && data.current.lng === 0)) return;
     const text = `${data.current.lat.toFixed(6)}, ${data.current.lng.toFixed(6)}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -112,16 +117,21 @@ export default function TrackerDashboard() {
   };
 
   const current = data?.current || {
-    lat: -7.747035,
-    lng: 110.355398,
+    lat: 0,
+    lng: 0,
     speed: 0,
-    altitude: 145.2,
+    altitude: 0,
     satellites: 0,
     timestamp: new Date().toISOString(),
   };
 
   const isOnline = data?.isOnline ?? false;
   const history = data?.history || [];
+  const hasGpsFix = current.lat !== 0 && current.lng !== 0 && current.satellites >= 3;
+
+  // Koordinat fallback untuk peta saat GPS belum fix (Jogja default)
+  const displayLat = hasGpsFix ? current.lat : (history[0]?.lat || -7.747035);
+  const displayLng = hasGpsFix ? current.lng : (history[0]?.lng || 110.355398);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 p-4 md:p-8">
@@ -146,14 +156,14 @@ export default function TrackerDashboard() {
                 <span>Hardware: <strong>Wemos D1 Mini Pro</strong> + <strong>u-blox NEO-6M</strong></span>
                 <span>•</span>
                 <span className="inline-flex items-center gap-1 text-emerald-400">
-                  <Wifi className="w-3.5 h-3.5" /> iPhone 16 Pro Zaqi
+                  <Wifi className="w-3.5 h-3.5" /> iPhone 16 Pro Zaqi (192.168.207.186)
                 </span>
               </p>
             </div>
           </div>
 
           {/* Status Badge & Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border ${
                 isOnline
@@ -166,20 +176,46 @@ export default function TrackerDashboard() {
                   isOnline ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
                 }`}
               ></span>
-              {isOnline ? "DEVICE ONLINE" : "STANDBY / OFFLINE"}
+              {isOnline ? "WEMOS ONLINE" : "WEMOS STANDBY"}
             </div>
+
+            <button
+              onClick={fetchData}
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
+              title="Perbarui data sekarang"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh</span>
+            </button>
 
             <button
               onClick={handleSimulate}
               disabled={simulating}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-medium rounded-xl transition shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
-              title="Kirim pergerakan koordinat uji coba"
+              title="Kirim koordinat uji coba untuk melihat pergerakan marker"
             >
               <Play className="w-3.5 h-3.5" />
-              <span>Simulasi Gerak</span>
+              <span>Tes Simulasi</span>
             </button>
           </div>
         </header>
+
+        {/* Indoor / No-Fix Alert Banner */}
+        {!hasGpsFix && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-3 text-amber-300 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="font-semibold block text-amber-200">
+                Modul GPS Sedang Mencari Satelit (Indoor - 0 Satelit Terkunci)
+              </strong>
+              <p className="text-xs text-amber-300/90 leading-relaxed">
+                Modul GPS NEO-6M fisik Anda sudah aktif dan terhubung, tetapi sinyal satelit GPS terhalang oleh atap/tembok ruangan. 
+                Peta di atas sementara menampilkan posisi default/terakhir. 
+                <strong> Bawa antena keramik GPS ke dekat jendela terbuka atau luar ruangan</strong> selama 1–3 menit sampai LED kecil di board GPS mulai berkedip (lock 3D).
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Stats Metric Cards */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -196,8 +232,8 @@ export default function TrackerDashboard() {
               <span className="text-xs text-slate-400 font-normal">Sats</span>
             </div>
             <div className="mt-2 text-[11px] flex items-center gap-1 text-slate-400">
-              <span className={`w-1.5 h-1.5 rounded-full ${current.satellites >= 4 ? "bg-emerald-400" : "bg-amber-400"}`}></span>
-              {current.satellites >= 4 ? "3D Fix Optimal" : "Mencari sinyal..."}
+              <span className={`w-1.5 h-1.5 rounded-full ${hasGpsFix ? "bg-emerald-400" : "bg-amber-400"}`}></span>
+              {hasGpsFix ? "3D Fix Optimal" : "Mencari satelit..."}
             </div>
           </div>
 
@@ -209,12 +245,12 @@ export default function TrackerDashboard() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-extrabold text-white">
-                {current.speed.toFixed(1)}
+                {hasGpsFix ? current.speed.toFixed(1) : "0.0"}
               </span>
               <span className="text-xs text-slate-400 font-normal">km/jam</span>
             </div>
             <div className="mt-2 text-[11px] text-slate-400">
-              {current.speed > 5 ? "Sedang Berjalan" : "Posisi Diam / Parkir"}
+              {hasGpsFix && current.speed > 5 ? "Sedang Berjalan" : "Posisi Diam / Parkir"}
             </div>
           </div>
 
@@ -226,12 +262,12 @@ export default function TrackerDashboard() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-extrabold text-white">
-                {current.altitude.toFixed(1)}
+                {hasGpsFix ? current.altitude.toFixed(1) : "--"}
               </span>
               <span className="text-xs text-slate-400 font-normal">mdpl</span>
             </div>
             <div className="mt-2 text-[11px] text-slate-400">
-              Di atas permukaan laut
+              {hasGpsFix ? "Di atas permukaan laut" : "Menunggu Lock GPS"}
             </div>
           </div>
 
@@ -242,25 +278,31 @@ export default function TrackerDashboard() {
               <MapPin className="w-4 h-4 text-rose-400" />
             </div>
             <div className="text-sm md:text-base font-bold text-white tracking-tight truncate">
-              {current.lat.toFixed(5)}, {current.lng.toFixed(5)}
+              {hasGpsFix ? `${current.lat.toFixed(5)}, ${current.lng.toFixed(5)}` : "Mencari Lokasi..."}
             </div>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <button
-                onClick={copyCoordinates}
-                className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1 transition"
-              >
-                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copied ? "Tersalin!" : "Salin"}</span>
-              </button>
-              <a
-                href={`https://maps.google.com/?q=${current.lat},${current.lng}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-slate-400 hover:text-white inline-flex items-center gap-0.5 transition"
-              >
-                <span>Google Maps</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              {hasGpsFix ? (
+                <>
+                  <button
+                    onClick={copyCoordinates}
+                    className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1 transition"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copied ? "Tersalin!" : "Salin"}</span>
+                  </button>
+                  <a
+                    href={`https://maps.google.com/?q=${current.lat},${current.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-400 hover:text-white inline-flex items-center gap-0.5 transition"
+                  >
+                    <span>Google Maps</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </>
+              ) : (
+                <span className="text-amber-400/80 text-[11px]">Indoor / No Fix</span>
+              )}
             </div>
           </div>
         </section>
@@ -302,8 +344,8 @@ export default function TrackerDashboard() {
           <div className="w-full h-[520px]">
             {mounted ? (
               <MapTracker
-                currentLat={current.lat}
-                currentLng={current.lng}
+                currentLat={displayLat}
+                currentLng={displayLng}
                 history={history}
                 isOnline={isOnline}
                 followMarker={followMarker}
@@ -320,7 +362,7 @@ export default function TrackerDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs text-slate-400">
             <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-500" /> Waktu Pembaruan Terakhir:
+                <Clock className="w-3.5 h-3.5 text-slate-500" /> Waktu Pembaruan:
               </span>
               <strong className="text-slate-200">
                 {new Date(current.timestamp).toLocaleTimeString("id-ID")}
@@ -328,15 +370,22 @@ export default function TrackerDashboard() {
             </div>
 
             <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-              <span>Status Koneksi Board:</span>
-              <span className={isOnline ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
-                {isOnline ? "Aktif Mengirim Data" : "Menunggu Data Wemos"}
+              <span>Status Satelit:</span>
+              <span className={hasGpsFix ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
+                {hasGpsFix ? `${current.satellites} Satelit (Terkunci)` : "0 Satelit (Mencari Sinyal Langit)"}
               </span>
             </div>
 
             <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-              <span>Endpoint API POST:</span>
-              <code className="text-blue-400 font-mono text-[11px]">/api/location</code>
+              <span>Wemos Web Portal:</span>
+              <a 
+                href="http://192.168.207.186/" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-blue-400 hover:underline font-mono"
+              >
+                http://192.168.207.186/ &rarr;
+              </a>
             </div>
           </div>
         </section>
